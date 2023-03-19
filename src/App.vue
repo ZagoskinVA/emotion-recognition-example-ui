@@ -16,11 +16,22 @@
         </div>
       </form>
 
+      <select @change="selectModel($event)">
+        <option value="1">First</option>
+        <option value="2">Second</option>
+      </select>
+
       <div v-if="data" class="pie">
         <div>
-          <img v-if="url" :src="url" style="max-width:700px;max-height:800px;"/>
+          <Pie :data="data" :options="options"/>
+          <img v-if="url" :src="url" style="max-width:400px;max-height:300px;"/>
+          <div><div>Согласны ли вы с результатом ?</div>
+            <div>
+              <button @click="savePhoto(true)">Да</button>
+              <button @click="savePhoto(false)">Нет</button>
+            </div>
+          </div>
         </div>
-        <Pie :data="data" :options="options"/>
       </div>
     </div>
   </div>
@@ -30,6 +41,7 @@
 import {upload} from "@/file-upload.service";
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
 import { Pie } from 'vue-chartjs'
+import {saveFileToDb} from "@/save-file-service";
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -53,6 +65,7 @@ export default {
       probabilities: null,
       viewClasses: {'0': 'Гнев', '1': 'Отвращение', '2': 'Печаль', '3': 'Презрение', '4': 'Радость', '5': 'Страх', '6': 'Удивление'},
       data: null,
+      selectedModel: '1',
       options:{
         plugins: {
           tooltip: {
@@ -82,24 +95,26 @@ export default {
     }
   },
   methods: {
+    selectModel(evnt){
+      this.selectedModel = evnt.target.value
+    },
     reset() {
       // reset form to initial state
       this.currentStatus = STATUS_INITIAL;
       this.uploadedFiles = [];
       this.uploadError = null;
     },
-    save(formData) {
+    save(formData, modelName) {
       // upload data to the server
       this.currentStatus = STATUS_SAVING;
 
-      upload(formData)
+      upload(formData, modelName)
           .then(x => {
             this.probabilities = {}
             Object.entries(x).forEach(([key, value]) => {
               this.probabilities[this.viewClasses[key]] = parseFloat(value) * 100;
             })
           }).then(() => {
-
             const labels = Object.keys(this.probabilities);
             const dataset = [{data: [], backgroundColor: ['#fc0303', '#fc8403', '#03065c', '#4ed40b', '#0bd49e', '#7658b8', '#b058b8'],}];
             labels.forEach(label => {
@@ -119,6 +134,7 @@ export default {
             this.uploadError = err.response;
             this.currentStatus = STATUS_FAILED;
           });
+
     },
     filesChange(fieldName, fileList) {
       // handle file changes
@@ -127,7 +143,20 @@ export default {
       this.image = fileList[0];
       formData.append('img', fileList[0], fileList[0].name)
       this.fileCount = fileList.length;
-      this.save(formData);
+      const modelName = this.selectedModel == '2' ? 'second' : 'first';
+      this.save(formData, modelName);
+    },
+    savePhoto(isAgree){
+      const modelName = this.selectedModel == '2' ? 'second' : 'first';
+      const formData = new FormData();
+      if(this.image){
+        this.data = null;
+        formData.append('Image', this.image, this.image.name)
+        formData.append('IsAgree', isAgree);
+        formData.append('ModelName', modelName);
+        saveFileToDb(formData);
+        alert('Ответ сохранен')
+      }
     }
   },
   mounted() {

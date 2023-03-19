@@ -1,9 +1,11 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:8000';
+const BASE_URL = 'http://80.87.197.127:8000';
 
-function upload(formData) {
-    const url = `${BASE_URL}/image`;
+function upload(formData, modelNumber) {
+    const model  = modelNumber == 'first' ? '/image_first' : '/image_second'
+    const url = `${BASE_URL}${model}`;
+
     return axios.post(url, formData)
         // get data
         .then(x => x.data)
